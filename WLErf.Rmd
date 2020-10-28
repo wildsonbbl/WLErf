@@ -1,0 +1,166 @@
+---
+title: "Predicting human quality activity with a random forest model"
+author: "Wildson B B Lima"
+date: "27/10/2020"
+output: 
+        html_document : 
+                keep_md: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Synopsis
+
+We build a random forest classifier model on the Weight Lifting Exercises Dataset[^1] to predict how well an activity is done.
+
+About the dataset:
+
+* Six young health participants were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E).
+
+[^1]:Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013. Read more: http://groupware.les.inf.puc-rio.br/har#dataset#ixzz6c6x1JE00
+
+## Packages
+
+Load the R packages needed further. It's also good to set system locale to avoid problems related with system differences between regions.
+
+```{r}
+library(data.table, quietly = T, warn.conflicts = F)
+library(caret, quietly = T,warn.conflicts = F)
+library(dplyr, quietly = T, warn.conflicts = F)
+library(plotly, quietly = T, warn.conflicts = F)
+library(doParallel, quietly = T, warn.conflicts = F)
+Sys.setlocale('LC_ALL','English')  
+```
+
+## Getting data
+
+Start by creating a directory to store data and download it from the web. While doing it, create a text file which states the time/timezone of download for reference purposes.  
+
+```{r cache=T}
+datadir <- './data'
+trainingurl <- 'https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv'
+testurl <- 'https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv'
+trainingpath <- paste0(datadir,'/pml-training.csv')
+testpath <- paste0(datadir,'/pml-testing.csv')
+
+if(!dir.exists(datadir)){
+        dir.create(datadir)
+}
+
+if(!file.exists(trainingpath)){
+        
+        download.file(url = trainingurl,
+                      destfile = trainingpath,
+                      method = 'curl')
+        download.file(url = testurl,
+                      destfile = testpath,
+                      method = 'curl')
+        
+        time <- as.character(Sys.time())
+        timezone <- Sys.timezone()
+        
+        downloadinfo <- data.frame(list(time = time, 
+                             format = "%Y-%m-%d %H:%M:%S",
+                             timezone = timezone))
+        
+        write.table(x = downloadinfo,
+                    file = paste0(datadir,'/downloadinfo.txt'),
+                    row.names = F)
+}
+
+```  
+
+## Brief Exploratory Data Analysis
+
+Use fread to load data into R environment.
+
+```{r}
+
+training <- fread(file = trainingpath, data.table = F,stringsAsFactors = T)
+test <- fread(file = testpath, data.table = F,stringsAsFactors = T)
+
+```
+
+There is lots of NA values in this dataset, so to avoid any trouble I'm gonna filter out columns that contains any of them and select the variables of interest to the model. Our response variable is named 'classe' in the dataset. For the purpose of this project, I'm gonna select only the spacial variables as explanatory variables. I expect that those variables contains enough information about the movements for the random forest's trees to be able to group them to each class. Same thing is applied to test set.
+
+```{r}
+training1 <- training %>% 
+        select(!where(anyNA)) %>%
+        select(classe,ends_with(c('x','y','z')))
+test1 <- test %>% 
+        select(!where(anyNA)) %>%
+        select(problem_id,ends_with(c('x','y','z')))
+
+```
+
+Let's take a look at a 3dplot of some spatial variable to see if we are lucky to find any pattern that calls attention.
+
+```{r warning=F}
+training1 %>% plot_ly(
+        x=.$gyros_belt_x,
+        z = .$gyros_belt_z, 
+        y = .$gyros_belt_y,
+        type = 'scatter3d',
+        color = .$classe,
+        mode = 'markers')
+
+```
+
+It seems like we were lucky here. We can see there is some coordinates where only the class E appears, same with class D. We hope that the random forest will be able to find more of those patterns and make a good model of it.
+
+## Building model
+
+Let's get to it. We are gonna use the caret package to build a random forest model with the variables we selected previously.
+
+Random forests is a modification of *bagging*. It takes a "committee" of low performance trees to make each a prediction, then averages the results from them. This is especially good for variance of the model, because with the average, the noises of each tree can be "neutralized", improving out of sample performance. Bias remains the same though, since each tree is identically distributed[^2].
+
+[^2]: The Elements Of Statistical Learning, 2nd Edition, 2009. [Acces Here](https://web.stanford.edu/~hastie/ElemStatLearn//). 
+
+For this to happen, one important aspect of the model is how data is gonna be resampled from the pool of data to each tree. We use 5-fold cross-validation, this way we expect each tree will have low bias and variance will be taken care through the cross validation.
+
+Due to lake of computation power, number of trees is set to 200, even though this might hurt overall performance. 
+
+```{r echo=FALSE}
+cluster <- makeCluster(detectCores() - 1) 
+registerDoParallel(cluster)
+```
+
+```{r}
+setControl <- trainControl(method = "cv",
+number = 5,
+allowParallel = TRUE)
+```
+
+```{r cache=T}
+model <- train(classe~.,
+               data = training1,
+               method = 'rf',
+               ntree = 200,
+               trControl = setControl)
+model$finalModel
+```
+
+```{r echo = F}
+stopCluster(cluster)
+registerDoSEQ()
+```
+
+That's our final model, the estimated out of sample error is 0.87%, which is reasonably low.
+
+## Prediction
+
+Now we are gonna use the model to predict the test set.
+
+```{r}
+pred <- predict(model, test1)
+cbind.data.frame(pred,test1$problem_id)
+```
+
+As we have seen previously, the estimated out of sample error is only 0.87%, so we estimated 100% of the test cases correctly. 
+
+
+
+
+

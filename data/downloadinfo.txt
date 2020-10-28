@@ -1,0 +1,2 @@
+"time" "format" "timezone"
+"2020-10-27 19:20:42" "%Y-%m-%d %H:%M:%S" "America/Buenos_Aires"
