@@ -1,5 +1,5 @@
 ---
-title: "Predicting human quality activity with a random forest model"
+title: "Predicting human activity quality with a random forest model"
 author: "Wildson B B Lima"
 date: "27/10/2020"
 output: 
@@ -31,6 +31,7 @@ library(caret, quietly = T,warn.conflicts = F)
 library(dplyr, quietly = T, warn.conflicts = F)
 library(plotly, quietly = T, warn.conflicts = F)
 library(doParallel, quietly = T, warn.conflicts = F)
+library(ggpubr, quietly = T, warn.conflicts = F)
 Sys.setlocale('LC_ALL','English')  
 ```
 
@@ -108,19 +109,21 @@ training1 %>% plot_ly(
 
 ```
 
-It seems like we were lucky here. We can see there is some coordinates where only the class E appears, same with class D. We hope that the random forest will be able to find more of those patterns and make a good model of it.
+It seems like we were lucky here. We can see there is some coordinates where only the class E appears, same with class D (you can play around selecting which classes you wanna see at the legend box). We hope that the random forest will be able to find more of those patterns and make a good model of it.
 
 ## Building model
 
-Let's get to it. We are gonna use the caret package to build a random forest model with the variables we selected previously.
+Let's get to it. We are gonna use the `caret` package to build a random forest model with the variables we selected previously.
 
-Random forests is a modification of *bagging*. It takes a "committee" of low performance trees to make each a prediction, then averages the results from them. This is especially good for variance of the model, because with the average, the noises of each tree can be "neutralized", improving out of sample performance. Bias remains the same though, since each tree is identically distributed[^2].
+Random forests is a modification of *bagging*. It takes a "committee" of low performance trees to make each one a prediction, then averages the results from them. This is especially good for variance of the model, because with the average, the noises of each tree can be "neutralized". Bias remains the same though, since each tree is identically distributed[^2].
 
 [^2]: The Elements Of Statistical Learning, 2nd Edition, 2009. [Acces Here](https://web.stanford.edu/~hastie/ElemStatLearn//). 
 
-For this to happen, one important aspect of the model is how data is gonna be resampled from the pool of data to each tree. We use 5-fold cross-validation, this way we expect each tree will have low bias and variance will be taken care through the cross validation.
+For out of sample error to be evaluated, one important aspect of the model is how data is gonna be sampled from the pool of data and 'fed' to the model. With K-fold cross-validation with replacement, k folds are made sampling from the pool of data, with replacement. The `train` function from `caret` will then evaluate a model with each fold then decide which one gives better out of sample performance. We use here 5-fold cross-validation. 
 
-Due to lake of computation power, number of trees is set to 200, even though this might hurt overall performance. 
+This way we expect random forest to neutralize **variance** due to noises from each **tree**, and **variance** due to **model** bias will be taken care through the cross-validation evaluation.
+
+Due to lake of computation power, number of trees is set to 200, even though this might hurt overall performance. We will check later how this might affect accuracy with a graph. 
 
 ```{r echo=FALSE}
 cluster <- makeCluster(detectCores() - 1) 
@@ -147,7 +150,28 @@ stopCluster(cluster)
 registerDoSEQ()
 ```
 
-That's our final model, the estimated out of sample error is 0.87%, which is reasonably low.
+That's our final model, the estimated out of sample error is 0.89%, which is reasonably low. The tuning parameter used by the `train` function is number of randomly selected predictors (explanatory variables) to each tree. At the plot below, we can see how accuracy changed among each one of those parameter and, at the final model, in each cross-validation k-fold.
+
+```{r}
+plot1<-ggplot(model) + theme_bw()
+plot2<-ggplot(data = model$resample, aes(x = Resample, y = Accuracy)) + geom_point() + theme_bw()
+ggarrange(plot1,plot2,nrow=2)
+```
+
+We can see accuracy falls as the number of randomly selected predictors grows. That way, 2 predictors was chosen as the final model. Among the k-folds, accuracy was kept at a high value.
+
+Now, let's take a look on how error rate changes as the number of trees grows. There were some worry that this would affect performance.
+
+```{r}
+errors <- data.table(model$finalModel$err.rate, trees = 1:200)
+errors2 <- melt(errors,7)
+plot3<- ggplot(data = errors2, aes(x = trees, y = value))
+plot3<- plot3 + geom_line() + theme_bw() + facet_wrap(.~variable)
+plot3<- plot3 + labs(y = 'Error Rate',x = 'Trees')
+plot3
+```
+
+We can see that around 100 trees, the error rate practically stabilizes around some value, for overall out of bag sample and each outcome class. So there is not much worries about that now. 
 
 ## Prediction
 
@@ -158,7 +182,7 @@ pred <- predict(model, test1)
 cbind.data.frame(pred,test1$problem_id)
 ```
 
-As we have seen previously, the estimated out of sample error is only 0.87%, so we estimated 100% of the test cases correctly. 
+As we have seen previously, the estimated out of sample error is only 0.89%, so we estimated 100% of the test cases correctly. 
 
 
 
