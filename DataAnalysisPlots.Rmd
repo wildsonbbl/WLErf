@@ -1,5 +1,5 @@
 ---
-title: "3D plots of the WEF dataset"
+title: "3D plots of the Weight Lifting Exercises Dataset"
 author: "Wildson B B Lima"
 date: "01/11/2020"
 output: slidy_presentation
@@ -40,7 +40,9 @@ if(!dir.exists(datadir)){
 
 ## Getting data (part 2/2)
 
-Download data from the web. While doing it, create a text file which states the time/timezone of download for reference purposes.  
+Download the Weight Lifting Exercises Dataset[^1] from the web. While doing it, create a text file which states the time/timezone of download for reference purposes.  
+
+[^1]:Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13). Stuttgart, Germany: ACM SIGCHI, 2013. Read more: http://groupware.les.inf.puc-rio.br/har#dataset#ixzz6c6x1JE00
 
 ```{r}
 trainingurl <- 'https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv'
@@ -62,6 +64,7 @@ if(!file.exists(trainingpath)){
                     row.names = F)
 }
 ```
+---
 
 ## Brief Exploratory Data Analysis
 
@@ -106,3 +109,5 @@ plot_ly(data=training1,x=~magnet_belt_x,z=~magnet_belt_z,y=~magnet_belt_y,type='
 
 ## Conclusion
 We can see there is some coordinates where only the class E appears, same with class D (you can play around selecting which classes you wanna see at the legend box). This way, we could differentiate between classes according to those trends.
+
+
