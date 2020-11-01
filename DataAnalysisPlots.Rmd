@@ -1,0 +1,108 @@
+---
+title: "3D plots of the WEF dataset"
+author: "Wildson B B Lima"
+date: "01/11/2020"
+output: slidy_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T)
+```
+
+## Packages
+
+Load the R packages needed further. It's also good to set system locale to avoid problems related with system differences between regions.
+
+```{r}
+library(data.table, quietly = T, warn.conflicts = F)
+library(caret, quietly = T,warn.conflicts = F)
+library(dplyr, quietly = T, warn.conflicts = F)
+library(plotly, quietly = T, warn.conflicts = F)
+library(doParallel, quietly = T, warn.conflicts = F)
+library(ggpubr, quietly = T, warn.conflicts = F)
+Sys.setlocale('LC_ALL','English')  
+```
+
+## Getting data (part 1/2)
+
+Start by creating a directory to store data.
+
+```{r}
+datadir <- './data'
+
+trainingpath <- paste0(datadir,'/pml-training.csv')
+testpath <- paste0(datadir,'/pml-testing.csv')
+
+if(!dir.exists(datadir)){
+        dir.create(datadir)
+}
+```
+
+## Getting data (part 2/2)
+
+Download data from the web. While doing it, create a text file which states the time/timezone of download for reference purposes.  
+
+```{r}
+trainingurl <- 'https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv'
+testurl <- 'https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv'
+if(!file.exists(trainingpath)){
+        download.file(url = trainingurl,
+                      destfile = trainingpath,
+                      method = 'curl')
+        download.file(url = testurl,
+                      destfile = testpath,
+                      method = 'curl')
+        time <- as.character(Sys.time())
+        timezone <- Sys.timezone()
+        downloadinfo <- data.frame(list(time = time, 
+                             format = "%Y-%m-%d %H:%M:%S",
+                             timezone = timezone))
+        write.table(x = downloadinfo,
+                    file = paste0(datadir,'/downloadinfo.txt'),
+                    row.names = F)
+}
+```
+
+## Brief Exploratory Data Analysis
+
+Use fread to load data into R environment.
+
+```{r}
+
+training <- fread(file = trainingpath, data.table = F,stringsAsFactors = T)
+test <- fread(file = testpath, data.table = F,stringsAsFactors = T)
+
+```
+
+There is lots of NA values in this dataset, so to avoid any trouble I'm gonna filter out columns that contains any of them and select the variables of interest to the model. Our response variable is named 'classe' in the dataset. For the purpose of this project, I'm gonna select only the spacial variables as explanatory variables.
+
+```{r}
+training1 <- training %>% 
+        select(!where(anyNA)) %>%
+        select(classe,ends_with(c('x','y','z')))
+test1 <- test %>% 
+        select(!where(anyNA)) %>%
+        select(problem_id,ends_with(c('x','y','z')))
+
+```
+
+## Plot 1
+
+```{r warning=F}
+plot_ly(data=training1,x=~gyros_belt_x,z=~gyros_belt_z,y=~gyros_belt_y,type='scatter3d',color=~classe,mode='markers')
+```
+
+## Plot 2
+
+```{r warning=F}
+plot_ly(data=training1,x=~accel_belt_x,z=~accel_belt_z,y=~accel_belt_y,type='scatter3d',color=~classe,mode='markers')
+```
+
+## Plot 3
+
+```{r warning=F}
+plot_ly(data=training1,x=~magnet_belt_x,z=~magnet_belt_z,y=~magnet_belt_y,type='scatter3d',color=~classe,mode='markers')
+```
+
+## Conclusion
+We can see there is some coordinates where only the class E appears, same with class D (you can play around selecting which classes you wanna see at the legend box). This way, we could differentiate between classes according to those trends.
