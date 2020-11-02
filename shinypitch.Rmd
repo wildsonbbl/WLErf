@@ -1,0 +1,73 @@
+---
+title: "3D plots of the Weight Lifting Exercises Dataset"
+author: "Wildson B B Lima"
+date: "01/11/2020"
+output: slidy_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r}
+library(data.table, warn.conflicts = F)
+library(dplyr, warn.conflicts = F)
+```
+
+## The Dataset
+
+* Six young health participants were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E).
+
+###### Reference: Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013. Read more: http://groupware.les.inf.puc-rio.br/har#dataset#ixzz6c6x1JE00
+
+
+## The app
+
+The intention of this app is to help the data analysis of the spacial variables generated in the Weight Lifting Exercises.   
+It makes it faster to see how each class is associated with its spacial variables.  
+The app can be accessed [here](https://wildson-b-b-lima.shinyapps.io/3Dplots/?_ga=2.58928813.102788.1604271857-10188108.1604271857) and the code to reproduce the app can be found at [github](https://github.com/wildsonbbl/WLErf/tree/master/3Dplots) (this link needs to be open in a new tab)
+
+## Variables
+
+With the following code, we can retrieve from the dataset the available spacial variables
+
+```{r echo=T}
+
+trainingpath <- './data/pml-training.csv'
+#' Use fread to load data into R environment.
+training <- fread(file = trainingpath, data.table = F,stringsAsFactors = T)
+#' Cleaning data
+training1 <- training %>% 
+    select(!where(anyNA)) %>%
+    select(classe,ends_with(c('x','y','z')))
+
+xvariables <- training1 %>%
+    select(ends_with(c('x'))) %>% names()
+yvariables <- training1 %>%
+    select(ends_with(c('y'))) %>% names()
+zvariables <- training1 %>%
+    select(ends_with(c('z'))) %>% names()
+```
+
+## Variables
+
+The variables of the x coordinate
+
+```{r comment=''}
+xvariables
+```
+
+The variables of the y coordinate
+
+```{r comment=''}
+yvariables
+```
+
+The variables of the z coordinate
+
+```{r comment=''}
+zvariables
+```
+
+
+
